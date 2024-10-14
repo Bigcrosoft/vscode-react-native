@@ -274,7 +274,6 @@ export class DirectDebugSession extends DebugSessionBase {
     protected async disconnectRequest(
         response: DebugProtocol.DisconnectResponse,
         args: DebugProtocol.DisconnectArguments,
-        request?: DebugProtocol.Request,
     ): Promise<void> {
         this.debugSessionStatus = DebugSessionStatus.Stopping;
 
@@ -306,6 +305,28 @@ export class DirectDebugSession extends DebugSessionBase {
                 localize("CouldNotStartChildDebugSession", "Couldn't start child debug session"),
             );
         }
+    }
+
+    protected async scopesRequest(
+        response: DebugProtocol.ScopesResponse,
+        args: DebugProtocol.ScopesArguments,
+    ): Promise<void> {
+        const scope = new DebugProtocol.Scope("Local", args.frameId);
+        response.body = {
+            scopes: [scope],
+        };
+        this.sendResponse(response);
+    }
+
+    protected async variablesRequest(
+        response: DebugProtocol.VariablesResponse,
+        args: DebugProtocol.VariablesArguments,
+    ): Promise<void> {
+        const variables = await this.vsCodeDebugSession.customRequest("variables", args);
+        response.body = {
+            variables: variables.variables,
+        };
+        this.sendResponse(response);
     }
 
     private handleTerminateDebugSession(debugSession: vscode.DebugSession): void {
