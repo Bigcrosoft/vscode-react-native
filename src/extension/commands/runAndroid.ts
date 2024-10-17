@@ -13,7 +13,10 @@ import { PlatformType } from "../launchArgs";
 import { getRunOptions } from "./util";
 import { ReactNativeCommand } from "./util/reactNativeCommand";
 
-abstract class RunAndroid extends ReactNativeCommand {
+export abstract class RunAndroid extends ReactNativeCommand {
+    codeName = "runAndroid";
+    label = "Run Android";
+
     error = ErrorHelper.getInternalError(InternalErrorCode.FailedToRunOnAndroid);
 
     async onBeforeExecute(): Promise<void> {
@@ -26,15 +29,35 @@ abstract class RunAndroid extends ReactNativeCommand {
         this.project.setReactNativeVersions(versions);
         TargetPlatformHelper.checkTargetPlatformSupport(PlatformType.Android);
     }
+
+    async baseFn(): Promise<void> {
+        assert(this.project);
+        await this.runAndroid(this.getTarget(), this.project);
+    }
+
+    protected getTarget(): TargetType {
+        throw new Error("Not implemented");
+    }
+
+    protected async runAndroid(target: TargetType, project: AppLauncher) {
+        const platform = new AndroidPlatform(getRunOptions(project, PlatformType.Android, target), {
+            packager: project.getPackager(),
+        });
+
+        await platform.resolveMobileTarget(target);
+        await platform.beforeStartPackager();
+        await platform.startPackager();
+        await platform.runApp(true);
+        await platform.disableJSDebuggingMode();
+    }
 }
 
 export class RunAndroidDevice extends RunAndroid {
     codeName = "runAndroidDevice";
     label = "Run Android on Device";
 
-    async baseFn(): Promise<void> {
-        assert(this.project);
-        await runAndroid(TargetType.Device, this.project);
+    protected getTarget(): TargetType {
+        return TargetType.Device;
     }
 }
 
@@ -42,20 +65,8 @@ export class RunAndroidSimulator extends RunAndroid {
     codeName = "runAndroidSimulator";
     label = "Run Android on Emulator";
 
-    async baseFn(): Promise<void> {
-        assert(this.project);
-        await runAndroid(TargetType.Simulator, this.project);
+    protected getTarget(): TargetType {
+        return TargetType.Simulator;
     }
 }
 
-async function runAndroid(target: TargetType, project: AppLauncher) {
-    const platform = new AndroidPlatform(getRunOptions(project, PlatformType.Android, target), {
-        packager: project.getPackager(),
-    });
-
-    await platform.resolveMobileTarget(target);
-    await platform.beforeStartPackager();
-    await platform.startPackager();
-    await platform.runApp(true);
-    await platform.disableJSDebuggingMode();
-}
